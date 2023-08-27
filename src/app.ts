@@ -4,15 +4,19 @@ import * as bcrypt from 'bcrypt'
 import * as jwt from 'jsonwebtoken'
 import express from 'express'
 import moment from "moment";
+
 import {body, validationResult} from "express-validator";
 import dotenv from 'dotenv'
 import { PrismaClient } from '@prisma/client';
 import {PrismaClientKnownRequestError} from "@prisma/client/runtime/library";
 import * as console from "console";
+import CartonController from "~/Controllers/CartonController";
 
 
 const bodyParser = require('body-parser')
+const cookieParser = require('cookie-parser')
 const config = dotenv.config()
+
 
 const prisma = new PrismaClient()
 /**
@@ -26,24 +30,52 @@ const app = express()
  * @example app.post('/', (req) => req.body.prop)
  */
 app.use(express.json())
+app.use(cookieParser())
 /**
  * On dit à Express que l'on souhaite autoriser tous les noms de domaines
  * à faire des requêtes sur notre API.
  */
 app.use(cors({origin: /(localhost|quilles2huit\.fr$)/, credentials:true}))
 
+
 /**
  * Toutes les routes CRUD pour les animaux seronts préfixées par `/pets`
  */
 //app.use('/batch', BatchController)
 //app.use('/makers', MakerController)
-//app.use('/marketplace', MarketPlaceController)
+app.use('/carton', CartonController )
 
 /**
  * Homepage (uniquement necessaire pour cette demo)
  */
 app.get('/', (req, res) => res.send('🏠'))
 
+app.get('/clubs', async (req, res) => {
+    const clubs =  await prisma.club.findMany({select: {
+        id: true, nom: true
+        }, orderBy: {nom: 'asc'}})
+
+    res.json(clubs)
+
+})
+app.get('/categories', async (req, res) => {
+    const categories =  await prisma.categorie.findMany({
+        include:{
+            distances:true
+        },
+        orderBy: {nom: 'asc'}})
+
+    res.json(categories)
+
+})
+
+app.get('/horaires', async (req, res) => {
+    const horaires =  await prisma.horaire.findMany({
+
+        orderBy: {heure: 'asc'}})
+    res.json(horaires)
+
+})
 app.use(bodyParser.urlencoded({extended :true}))
 /**
  * Pour toutes les autres routes non définies, on retourne une erreur
@@ -60,6 +92,7 @@ app.post('/register',
         .isEmpty(),
     body('password')
         .isLength({min: 8}),
+    body('clubId').notEmpty(),
     body('sexe').notEmpty(),
     body('licence').not().isEmpty()
     ,async (req, res, next) => {
@@ -86,9 +119,9 @@ app.post('/register',
             if (e instanceof PrismaClientKnownRequestError){
                 if (e.code === 'P2002') {
                     console.log(
-                        'There is a unique constraint violation, a new user cannot be created with this email'
+                        'There is a unique constraint violation, a new user cannot be created with this login'
                     )
-                    res.json({error: 'un compte existe déja avec cette adresse email'})
+                    res.json({error: 'Cette identifiant est déja utilisé'})
                 }
             }else {
                 console.log(e)
@@ -208,7 +241,7 @@ app.route('/resetpass/:id')
 app.post('/login', async (req, res, nextPassReset) => {
     //logger.info('login', req.body.email)
     await prisma.$connect()
-    const user =await prisma.user.findFirst({where:{identifiant: req.body.identifiant}})
+    const user = await prisma.user.findFirst({where:{identifiant: req.body.identifiant}})
 
     if (user != null && user.password !== null){
         //logger.info('user found', {user: user?.email})
@@ -216,7 +249,7 @@ app.post('/login', async (req, res, nextPassReset) => {
         if (ok){
             //logger.info('login success')
             let token = jwt.sign({identifiant:user.identifiant},'caca', {expiresIn: "24h",issuer: "quilles2huit.fr", audience: "quilles2huit.fr"})
-            res.cookie('token', token, {domain: process.env.NODE_ENV === 'development' ? 'localhost': 'quilles2huit.fr'})
+            res.cookie('token', token, {domain: process.env.NODE_ENV === 'development' ? 'localhost:3002': 'quilles2huit.fr'})
                 .json({token})
 
 

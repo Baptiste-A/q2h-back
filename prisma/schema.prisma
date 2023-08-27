@@ -10,14 +10,77 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-    id String @id @default(uuid())
-    identifiant String @unique
-    password String
-    nom String
-    prenom String
-    sexe String
-    date_naissance DateTime
-    licence String
+  id             String   @id @default(uuid())
+  identifiant    String   @unique
+  password       String
+  nom            String
+  prenom         String
+  sexe           String
+  date_naissance DateTime
+  licence        String
+  cartons        Carton[]
+  Coup           Coup[]
+  club           Club     @relation(fields: [clubId], references: [id])
+  clubId         String
+}
+
+model Categorie {
+  id        String     @id @default(uuid())
+  nom       String
+  sexe      String
+  age_min   Int
+  age_max   Int?
+  distances Distance[]
+}
+
+model Distance {
+  id          String     @id @default(uuid())
+  ordre       Int
+  nb_coup     Int
+  distance    Float
+  Categorie   Categorie? @relation(fields: [categorieId], references: [id])
+  categorieId String?
+}
+
+model Club {
+  id          String @id @default(uuid())
+  nom         String
+  lieu        String
+  departement Int
+  Joueurs     User[]
+}
+
+model Lieu {
+  id      String   @id @default(uuid())
+  nom     String
+  Cartons Carton[]
+}
+
+model Carton {
+  id         String   @id @default(uuid())
+  termine    Boolean  @default(false)
+  joueurs    User[]
+  lieu       Lieu     @relation(fields: [lieuId], references: [id])
+  lieuId     String
+  created_at DateTime @default(now())
+  type       String
+  horaire    Horaire? @relation(fields: [horaireId], references: [id])
+  coups      Coup[]
+  horaireId  String?
+}
+
+model Coup {
+  id       String  @id @default(uuid())
+  joueur   User    @relation(fields: [userId], references: [id])
+  valeur   Int
+  Carton   Carton? @relation(fields: [cartonId], references: [id])
+  cartonId String?
+  userId   String
+}
+
+model Horaire {
+  id     String   @id @default(uuid())
+  heure  String
+  Carton Carton[]
 }
